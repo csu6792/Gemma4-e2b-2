@@ -1,0 +1,1180 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta name="color-scheme" content="dark">
+
+  <meta
+    name="apple-mobile-web-app-capable"
+    content="yes"
+  >
+
+  <meta
+    name="apple-mobile-web-app-status-bar-style"
+    content="black-translucent"
+  >
+
+  <title>Gemma 4 E2B · iPhone WebGPU</title>
+
+  <style>
+    :root {
+      --bg: #08090c;
+      --panel: #101217;
+      --panel2: #151821;
+      --border: #282d38;
+      --text: #f4f5f7;
+      --muted: #9298a5;
+      --accent: #8ab4ff;
+      --danger: #ff7777;
+      --success: #7ee2a8;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "SF Pro Display",
+        "SF Pro Text",
+        system-ui,
+        sans-serif;
+    }
+
+    body {
+      min-height: 100dvh;
+    }
+
+    button,
+    textarea {
+      font: inherit;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      min-height: 100dvh;
+
+      display: flex;
+      flex-direction: column;
+
+      padding:
+        env(safe-area-inset-top)
+        14px
+        env(safe-area-inset-bottom)
+        14px;
+    }
+
+    header {
+      padding: 18px 4px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status {
+      margin-top: 12px;
+      min-height: 20px;
+
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status.loading {
+      color: var(--accent);
+    }
+
+    .status.success {
+      color: var(--success);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .progress-wrap {
+      display: none;
+      margin-top: 10px;
+      width: 100%;
+      height: 4px;
+      border-radius: 99px;
+      overflow: hidden;
+      background: #20242d;
+    }
+
+    .progress {
+      width: 0%;
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.15s linear;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+
+      background: var(--panel2);
+      color: var(--text);
+
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button.primary {
+      background: var(--text);
+      color: #090a0d;
+      border-color: var(--text);
+      font-weight: 650;
+    }
+
+    button.danger {
+      color: #ffaaaa;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+      transform: none;
+    }
+
+    #chat {
+      flex: 1;
+      min-height: 0;
+
+      display: flex;
+      flex-direction: column;
+    }
+
+    #messages {
+      flex: 1;
+      min-height: 300px;
+
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+
+      padding: 18px 0 120px;
+    }
+
+    .message {
+      margin-bottom: 18px;
+    }
+
+    .role {
+      margin-bottom: 5px;
+
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .bubble {
+      white-space: pre-wrap;
+      word-break: break-word;
+
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .user .bubble {
+      color: #dfe5f0;
+    }
+
+    .assistant .bubble {
+      color: #ffffff;
+    }
+
+    .empty {
+      padding: 60px 10px;
+      text-align: center;
+    }
+
+    .empty-title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .empty-text {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .composer {
+      position: fixed;
+
+      left: 0;
+      right: 0;
+      bottom: 0;
+
+      padding:
+        10px
+        14px
+        calc(10px + env(safe-area-inset-bottom));
+
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(8, 9, 12, 0),
+          rgba(8, 9, 12, 0.94) 20%
+        );
+    }
+
+    .composer-inner {
+      max-width: 900px;
+      margin: 0 auto;
+
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    textarea {
+      flex: 1;
+
+      min-height: 46px;
+      max-height: 140px;
+
+      resize: none;
+
+      border: 1px solid var(--border);
+      border-radius: 14px;
+
+      padding: 12px 13px;
+
+      background: var(--panel);
+      color: var(--text);
+
+      outline: none;
+
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    textarea:focus {
+      border-color: #444b5b;
+    }
+
+    textarea::placeholder {
+      color: #666c78;
+    }
+
+    #sendBtn {
+      min-width: 70px;
+      height: 46px;
+    }
+
+    .info {
+      margin-top: 12px;
+
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    @media (min-width: 700px) {
+      .app {
+        padding-left: 24px;
+        padding-right: 24px;
+      }
+
+      .composer {
+        padding-left: 24px;
+        padding-right: 24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <header>
+
+    <div class="title">
+      Gemma 4 E2B
+    </div>
+
+    <div class="subtitle">
+      QAT Mobile · WebGPU · iPhone Safari
+    </div>
+
+    <div
+      id="status"
+      class="status"
+    >
+      尚未載入模型
+    </div>
+
+    <div
+      id="progressWrap"
+      class="progress-wrap"
+    >
+      <div
+        id="progress"
+        class="progress"
+      ></div>
+    </div>
+
+    <div class="toolbar">
+
+      <button
+        id="loadBtn"
+        class="primary"
+        type="button"
+      >
+        載入 Gemma 4
+      </button>
+
+      <button
+        id="clearBtn"
+        type="button"
+        disabled
+      >
+        清除對話
+      </button>
+
+    </div>
+
+    <div class="info">
+      模型第一次載入約需數 GB 網路流量。
+      推理在瀏覽器本機 WebGPU 執行。
+    </div>
+
+  </header>
+
+
+  <main id="chat">
+
+    <div id="messages">
+
+      <div
+        id="empty"
+        class="empty"
+      >
+
+        <div class="empty-title">
+          Gemma 4 E2B
+        </div>
+
+        <div class="empty-text">
+          按「載入 Gemma 4」開始。<br>
+          請保持 Safari 前景並避免鎖定螢幕。
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+
+
+<div class="composer">
+
+  <div class="composer-inner">
+
+    <textarea
+      id="input"
+      rows="1"
+      placeholder="輸入訊息…"
+      autocomplete="off"
+      autocorrect="on"
+      autocapitalize="sentences"
+      spellcheck="true"
+      disabled
+    ></textarea>
+
+    <button
+      id="sendBtn"
+      class="primary"
+      type="button"
+      disabled
+    >
+      發送
+    </button>
+
+  </div>
+
+</div>
+
+
+<script type="module">
+
+  /*
+   * ============================================================
+   * Gemma 4 E2B · iPhone Safari GitHub Pages
+   *
+   * IMPORTANT:
+   *
+   * 1. Do NOT call navigator.gpu.requestAdapter() manually.
+   * 2. Do NOT call navigator.gpu.requestDevice() manually.
+   * 3. Let Gemma4Mobile own WebGPU initialization.
+   * 4. Do NOT create Blob/object URLs for the model.
+   * 5. Do NOT put the model into IndexedDB manually.
+   * 6. Do NOT dispose the model from beforeunload.
+   *
+   * The original WebGPU kernel demo already uses:
+   *
+   *   import { Gemma4Mobile } from "./gemma-4-e2b.js";
+   *
+   * We keep that architecture.
+   * ============================================================
+   */
+
+  import { Gemma4Mobile } from "./gemma-4-e2b.js";
+
+
+  const $ = (id) => document.getElementById(id);
+
+
+  const statusEl = $("status");
+  const progressWrap = $("progressWrap");
+  const progressEl = $("progress");
+
+  const loadBtn = $("loadBtn");
+  const clearBtn = $("clearBtn");
+
+  const messagesEl = $("messages");
+  const emptyEl = $("empty");
+
+  const inputEl = $("input");
+  const sendBtn = $("sendBtn");
+
+
+  let model = null;
+  let loading = false;
+  let generating = false;
+
+
+  /*
+   * ------------------------------------------------------------
+   * Status
+   * ------------------------------------------------------------
+   */
+
+  function setStatus(type, text) {
+
+    statusEl.className = "status";
+
+    if (type) {
+      statusEl.classList.add(type);
+    }
+
+    statusEl.textContent = text;
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * Progress
+   * ------------------------------------------------------------
+   */
+
+  function updateProgress(info) {
+
+    /*
+     * The engine may report different progress formats.
+     * We deliberately handle several possible shapes.
+     */
+
+    let value = null;
+    let text = null;
+
+    if (typeof info === "number") {
+
+      value = info;
+
+    } else if (info && typeof info === "object") {
+
+      if (typeof info.progress === "number") {
+        value = info.progress;
+      }
+
+      if (typeof info.percent === "number") {
+        value = info.percent / 100;
+      }
+
+      if (typeof info.loaded === "number" &&
+          typeof info.total === "number" &&
+          info.total > 0) {
+
+        value = info.loaded / info.total;
+      }
+
+      if (typeof info.status === "string") {
+        text = info.status;
+      }
+
+      if (typeof info.message === "string") {
+        text = info.message;
+      }
+    }
+
+
+    if (value != null && Number.isFinite(value)) {
+
+      /*
+       * Accept both:
+       *
+       * 0.42
+       *
+       * and
+       *
+       * 42
+       */
+
+      if (value > 1) {
+        value = value / 100;
+      }
+
+      value = Math.max(0, Math.min(1, value));
+
+      progressEl.style.width =
+        `${Math.round(value * 100)}%`;
+    }
+
+
+    if (text) {
+
+      setStatus(
+        "loading",
+        text
+      );
+
+    } else if (value != null) {
+
+      setStatus(
+        "loading",
+        `載入模型 ${Math.round(value * 100)}%`
+      );
+
+    } else {
+
+      setStatus(
+        "loading",
+        "正在載入 Gemma 4…"
+      );
+    }
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * UI state
+   * ------------------------------------------------------------
+   */
+
+  function updateUI() {
+
+    const ready =
+      !!model &&
+      !loading;
+
+    inputEl.disabled =
+      !ready ||
+      generating;
+
+    sendBtn.disabled =
+      !ready ||
+      generating ||
+      !inputEl.value.trim();
+
+    clearBtn.disabled =
+      !model ||
+      loading ||
+      generating;
+
+    loadBtn.disabled =
+      loading ||
+      !!model;
+
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * Add message
+   * ------------------------------------------------------------
+   */
+
+  function addMessage(role, text = "") {
+
+    if (emptyEl) {
+      emptyEl.remove();
+    }
+
+
+    const wrapper =
+      document.createElement("div");
+
+    wrapper.className =
+      `message ${role}`;
+
+
+    const roleEl =
+      document.createElement("div");
+
+    roleEl.className =
+      "role";
+
+    roleEl.textContent =
+      role === "user"
+        ? "YOU"
+        : "GEMMA 4";
+
+
+    const bubble =
+      document.createElement("div");
+
+    bubble.className =
+      "bubble";
+
+    bubble.textContent =
+      text;
+
+
+    wrapper.appendChild(roleEl);
+    wrapper.appendChild(bubble);
+
+    messagesEl.appendChild(wrapper);
+
+
+    messagesEl.scrollTop =
+      messagesEl.scrollHeight;
+
+
+    return bubble;
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * Load model
+   * ------------------------------------------------------------
+   */
+
+  async function loadModel() {
+
+    if (loading || model) {
+      return;
+    }
+
+
+    loading = true;
+
+    updateUI();
+
+
+    progressWrap.style.display =
+      "block";
+
+    progressEl.style.width =
+      "0%";
+
+
+    setStatus(
+      "loading",
+      "正在初始化 WebGPU…"
+    );
+
+
+    try {
+
+      /*
+       * IMPORTANT:
+       *
+       * No manual requestAdapter()
+       * No manual requestDevice()
+       *
+       * This is intentionally left to
+       * Gemma4Mobile.
+       */
+
+      model =
+        await Gemma4Mobile.load(
+          null,
+          {
+            onProgress:
+              updateProgress
+          }
+        );
+
+
+      setStatus(
+        "loading",
+        "正在暖機 WebGPU kernels…"
+      );
+
+
+      /*
+       * The original demo warms up after load.
+       *
+       * This makes the first actual generation
+       * less likely to have a huge one-time spike.
+       */
+
+      if (
+        model &&
+        typeof model.warmup === "function"
+      ) {
+
+        await model.warmup();
+      }
+
+
+      progressEl.style.width =
+        "100%";
+
+
+      setStatus(
+        "success",
+        "Gemma 4 已準備完成"
+      );
+
+
+      inputEl.disabled =
+        false;
+
+      inputEl.focus();
+
+
+    } catch (error) {
+
+      console.error(
+        "Gemma4Mobile.load failed:",
+        error
+      );
+
+
+      model = null;
+
+
+      let message =
+        "模型載入失敗";
+
+
+      if (error) {
+
+        if (error.message) {
+          message +=
+            `：${error.message}`;
+        } else {
+          message +=
+            `：${String(error)}`;
+        }
+      }
+
+
+      setStatus(
+        "error",
+        message
+      );
+
+
+      /*
+       * Do not automatically retry.
+       *
+       * On iPhone Safari, an aggressive retry loop
+       * can make memory pressure worse.
+       */
+
+    } finally {
+
+      loading = false;
+
+      progressWrap.style.display =
+        "none";
+
+      updateUI();
+    }
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * Send
+   * ------------------------------------------------------------
+   */
+
+  async function sendMessage() {
+
+    if (
+      !model ||
+      loading ||
+      generating
+    ) {
+      return;
+    }
+
+
+    const prompt =
+      inputEl.value.trim();
+
+
+    if (!prompt) {
+      return;
+    }
+
+
+    generating = true;
+
+    updateUI();
+
+
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+
+
+    /*
+     * User message
+     */
+
+    addMessage(
+      "user",
+      prompt
+    );
+
+
+    /*
+     * Assistant message
+     */
+
+    const outputEl =
+      addMessage(
+        "assistant",
+        ""
+      );
+
+
+    setStatus(
+      "loading",
+      "Gemma 4 正在生成…"
+    );
+
+
+    try {
+
+      /*
+       * The engine maintains the conversation.
+       */
+
+      const stream =
+        model.generate(
+          [
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          {
+            /*
+             * Keep this conservative for iPhone.
+             *
+             * The original demo uses 4096.
+             * We intentionally start at 256.
+             *
+             * This limits KV-cache growth during
+             * long generations.
+             */
+
+            maxNewTokens: 256,
+
+            temperature: 0.7,
+
+            topP: 0.9
+          }
+        );
+
+
+      let fullText = "";
+
+
+      for await (
+        const chunk of stream
+      ) {
+
+        /*
+         * Original demo yields:
+         *
+         * { text: full }
+         *
+         * so `text` represents the accumulated
+         * generated text.
+         */
+
+        if (
+          chunk &&
+          typeof chunk.text === "string"
+        ) {
+
+          fullText =
+            chunk.text;
+
+        } else if (
+          typeof chunk === "string"
+        ) {
+
+          fullText +=
+            chunk;
+        }
+
+
+        outputEl.textContent =
+          fullText;
+
+
+        messagesEl.scrollTop =
+          messagesEl.scrollHeight;
+      }
+
+
+      setStatus(
+        "success",
+        "生成完成"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Gemma generation failed:",
+        error
+      );
+
+
+      const message =
+        error?.message ||
+        String(error);
+
+
+      outputEl.textContent =
+        `[生成錯誤]\n${message}`;
+
+
+      setStatus(
+        "error",
+        `生成失敗：${message}`
+      );
+
+
+    } finally {
+
+      generating = false;
+
+      updateUI();
+
+      inputEl.focus();
+    }
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * Clear conversation
+   * ------------------------------------------------------------
+   */
+
+  function clearConversation() {
+
+    if (!model) {
+      return;
+    }
+
+
+    if (
+      typeof model.reset === "function"
+    ) {
+
+      model.reset();
+    }
+
+
+    messagesEl.innerHTML = `
+      <div
+        id="empty"
+        class="empty"
+      >
+        <div class="empty-title">
+          Gemma 4 E2B
+        </div>
+
+        <div class="empty-text">
+          對話已清除。
+        </div>
+      </div>
+    `;
+
+
+    setStatus(
+      "success",
+      "對話已清除"
+    );
+
+
+    updateUI();
+
+    inputEl.focus();
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * Auto-grow textarea
+   * ------------------------------------------------------------
+   */
+
+  function resizeInput() {
+
+    inputEl.style.height =
+      "auto";
+
+
+    inputEl.style.height =
+      `${Math.min(
+        inputEl.scrollHeight,
+        140
+      )}px`;
+
+
+    updateUI();
+  }
+
+
+  /*
+   * ------------------------------------------------------------
+   * Events
+   * ------------------------------------------------------------
+   */
+
+  loadBtn.addEventListener(
+    "click",
+    loadModel
+  );
+
+
+  sendBtn.addEventListener(
+    "click",
+    sendMessage
+  );
+
+
+  clearBtn.addEventListener(
+    "click",
+    clearConversation
+  );
+
+
+  inputEl.addEventListener(
+    "input",
+    resizeInput
+  );
+
+
+  inputEl.addEventListener(
+    "keydown",
+    (event) => {
+
+      /*
+       * Desktop:
+       * Enter = send
+       *
+       * Shift+Enter = newline
+       *
+       * On iPhone the keyboard normally uses
+       * the return key, so this doesn't interfere
+       * with normal typing.
+       */
+
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+
+        event.preventDefault();
+
+        sendMessage();
+      }
+    }
+  );
+
+
+  /*
+   * ------------------------------------------------------------
+   * Initial WebGPU check
+   *
+   * We ONLY check existence here.
+   *
+   * We intentionally do NOT create an adapter/device.
+   * ------------------------------------------------------------
+   */
+
+  if (!navigator.gpu) {
+
+    setStatus(
+      "error",
+      "此 Safari 沒有可用的 WebGPU。"
+    );
+
+
+    loadBtn.disabled =
+      true;
+
+  } else {
+
+    setStatus(
+      "",
+      "WebGPU 可用，等待載入模型…"
+    );
+  }
+
+
+  updateUI();
+
+</script>
+
+</body>
+</html>
